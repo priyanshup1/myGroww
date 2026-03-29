@@ -13,6 +13,7 @@ import {
     DEFAULT_INVESTMENT_CATEGORIES,
     DEFAULT_SIPS,
     DEFAULT_EXPENSES,
+    DEFAULT_FAMILY_CONTRIBUTION,
 } from '../data/defaults';
 
 function usePersistedState(key, defaultValue) {
@@ -38,7 +39,7 @@ export function useFinanceData() {
     const [moneyFlow, setMoneyFlow] = usePersistedState('moneyFlow', DEFAULT_MONEY_FLOW);
     const [sips, setSips] = usePersistedState('sips', DEFAULT_SIPS);
     const [expenses, setExpenses] = usePersistedState('expenses', DEFAULT_EXPENSES);
-    const [familyContribution, setFamilyContribution] = usePersistedState('familyContribution', 0);
+    const [familyContribution, setFamilyContribution] = usePersistedState('familyContribution', DEFAULT_FAMILY_CONTRIBUTION);
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
     const getMonthsBetween = (start, end) => {
@@ -79,13 +80,24 @@ export function useFinanceData() {
         .reduce((s, c) => s + (Number(c.amount) || 0), 0);
     const smallCapPct = totalInvested > 0 ? (smallCapAmount / totalInvested) * 100 : 0;
 
-    // ─── Family contribution derived ──────────────────────────────────────────
+    // ─── Derived values for Quick Summary ─────────────────────────────────────
     const amountRetained = Math.max(0, income - familyContribution);
-    const familyPctGiven = income > 0 ? Math.min(100, (familyContribution / income) * 100) : 0;
+    const familyPctOfIncome = income > 0 ? (familyContribution / income) * 100 : 0;
+
+    const monthlyExpenses = expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const expenseRatioOfRetained = amountRetained > 0 ? (monthlyExpenses / amountRetained) * 100 : 0;
+
+    const sipRatioOfRetained = amountRetained > 0 ? (totalMonthlySip / amountRetained) * 100 : 0;
+    const wealthBuildingPctOfIncome = income > 0 ? (totalMonthlySip / income) * 100 : 0;
+
+    const moneyLeft = amountRetained - monthlyExpenses - totalMonthlySip;
+
+    const emergencyGap = (monthlyExpenses * 6) - emergencyFund;
+    const monthsCovered = monthlyExpenses > 0 ? (emergencyFund / monthlyExpenses).toFixed(1) : '∞';
+
+    const activeSipsCount = sips.filter(s => (Number(s.monthlySip) || 0) > 0).length;
 
     const netWorth = totalInvested + emergencyFund;
-    const monthlyExpenses = expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-    const monthsCovered = monthlyExpenses > 0 ? (emergencyFund / monthlyExpenses).toFixed(1) : '∞';
 
     // ─── SIP helpers ─────────────────────────────────────────────────────────
     const addSip = (row) => setSips((prev) => [...prev, row]);
@@ -132,8 +144,15 @@ export function useFinanceData() {
         monthsCovered,
         totalMonthlySip,
         smallCapPct,
+        // New specific metrics
         amountRetained,
-        familyPctGiven,
+        familyPctOfIncome,
+        expenseRatioOfRetained,
+        sipRatioOfRetained,
+        moneyLeft,
+        emergencyGap,
+        activeSipsCount,
+        wealthBuildingPctOfIncome,
         sipsWithTotals,
     };
 }

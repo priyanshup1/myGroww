@@ -22,11 +22,13 @@ export default function InsightsPage() {
         income, totalMonthlySip, totalInvested, emergencyFund,
         monthlyExpenses, monthsCovered, smallCapPct,
         investmentCategories, sips,
+        familyContribution, amountRetained, familyPctOfIncome,
+        wealthBuildingPctOfIncome, moneyLeft,
     } = useFinanceData();
 
     const efMonths = parseFloat(monthsCovered);
-    const expenseRatio = income > 0 ? (monthlyExpenses / income) * 100 : 0;
-    const sipRatio = income > 0 ? (totalMonthlySip / income) * 100 : 0;
+    const expenseRatio = amountRetained > 0 ? (monthlyExpenses / amountRetained) * 100 : 0;
+    const sipRatio = amountRetained > 0 ? (totalMonthlySip / amountRetained) * 100 : 0;
 
     const insights = [
         {
@@ -40,6 +42,16 @@ export default function InsightsPage() {
             detail: smallCapPct > 20
                 ? 'Small cap > 20% of portfolio — consider rebalancing to reduce volatility risk.'
                 : 'Small cap allocation is within healthy limits. Keep monitoring.',
+        },
+        {
+            id: 'family',
+            show: true,
+            status: familyPctOfIncome > 30 ? 'amber' : 'green',
+            emoji: '🏠',
+            title: `Family contribution: ${familyPctOfIncome.toFixed(1)}% of income`,
+            detail: familyPctOfIncome > 30
+                ? `You contribute ${formatRupee(familyContribution)} monthly. Ensure this fits your long-term goals.`
+                : `Healthy family support ratio. You retain ${formatRupee(amountRetained)} for your own goals.`,
         },
         {
             id: 'emergency',
@@ -58,28 +70,16 @@ export default function InsightsPage() {
         {
             id: 'siprate',
             show: true,
-            status: sipRatio > 20 ? 'green' : sipRatio > 10 ? 'amber' : 'red',
-            emoji: sipRatio > 20 ? '🏆' : sipRatio > 10 ? '📊' : '💡',
-            title: sipRatio > 20
-                ? `Great savings discipline — ${sipRatio.toFixed(1)}% of income in SIPs`
-                : sipRatio > 10
-                    ? `Moderate savings rate — ${sipRatio.toFixed(1)}% of income in SIPs`
-                    : `Low SIP rate — ${sipRatio.toFixed(1)}% of income invested`,
-            detail: sipRatio > 20
-                ? 'You\'re investing more than 20% of income. This puts you on track for long-term wealth.'
-                : 'Target 20%+ of income for SIPs to build substantial long-term wealth.',
-        },
-        {
-            id: 'consistency',
-            show: true,
-            status: sips.length > 0 ? 'green' : 'amber',
-            emoji: sips.length > 0 ? '📅' : '📌',
-            title: sips.length > 0
-                ? `Consistent investor — ${sips.length} active SIP${sips.length > 1 ? 's' : ''} this month`
-                : 'No SIPs configured yet',
-            detail: sips.length > 0
-                ? `All ${sips.length} SIPs active. Total monthly commitment: ${formatRupee(totalMonthlySip)}`
-                : 'Add your mutual fund SIPs in the SIP Tracker to start tracking consistency.',
+            status: wealthBuildingPctOfIncome > 20 ? 'green' : wealthBuildingPctOfIncome > 10 ? 'amber' : 'red',
+            emoji: wealthBuildingPctOfIncome > 20 ? '🏆' : wealthBuildingPctOfIncome > 10 ? '📊' : '💡',
+            title: wealthBuildingPctOfIncome > 20
+                ? `Great wealth building — ${wealthBuildingPctOfIncome.toFixed(1)}% of total income in SIPs`
+                : wealthBuildingPctOfIncome > 10
+                    ? `Moderate wealth building — ${wealthBuildingPctOfIncome.toFixed(1)}% of income in SIPs`
+                    : `Low investment rate — ${wealthBuildingPctOfIncome.toFixed(1)}% of income invested`,
+            detail: wealthBuildingPctOfIncome > 20
+                ? 'You\'re investing more than 20% of your gross income. This is excellent for long-term wealth.'
+                : 'Aim for 20% of gross income to be directed towards investments/SIPs.',
         },
         {
             id: 'expenses',
@@ -87,26 +87,25 @@ export default function InsightsPage() {
             status: expenseRatio < 50 ? 'green' : expenseRatio < 70 ? 'amber' : 'red',
             emoji: expenseRatio < 50 ? '💚' : expenseRatio < 70 ? '🟡' : '🔴',
             title: expenseRatio < 50
-                ? `Excellent expense control — only ${expenseRatio.toFixed(1)}% of income spent`
+                ? `Efficient spending — only ${expenseRatio.toFixed(1)}% of retained income spent`
                 : expenseRatio < 70
-                    ? `Moderate expenses — ${expenseRatio.toFixed(1)}% of income spent`
-                    : `High expenses — ${expenseRatio.toFixed(1)}% of income spent`,
+                    ? `Moderate spending — ${expenseRatio.toFixed(1)}% of retained income spent`
+                    : `High spending — ${expenseRatio.toFixed(1)}% of retained income spent`,
             detail: expenseRatio < 50
-                ? 'You\'re keeping expenses below 50% of income. Excellent financial health.'
-                : expenseRatio < 70
-                    ? 'Consider reducing discretionary spending to improve your savings rate.'
-                    : 'Expenses exceed 70% of income. Review and reduce non-essential costs urgently.',
+                ? 'You\'re keeping expenses well below 50% of your retained income. Excellent discipline.'
+                : 'Consider reviewing discretionary spending to free up more for investments.',
         },
         {
-            id: 'diversification',
+            id: 'savings',
             show: true,
-            status: investmentCategories.filter(c => c.amount > 0).length >= 4 ? 'green'
-                : investmentCategories.filter(c => c.amount > 0).length >= 2 ? 'amber' : 'red',
-            emoji: investmentCategories.filter(c => c.amount > 0).length >= 4 ? '🌐' : '📂',
-            title: `Portfolio diversification: ${investmentCategories.filter(c => c.amount > 0).length} asset class${investmentCategories.filter(c => c.amount > 0).length !== 1 ? 'es' : ''}`,
-            detail: investmentCategories.filter(c => c.amount > 0).length >= 4
-                ? 'Well-diversified across 4+ asset classes. Good risk distribution.'
-                : 'Consider diversifying into more asset classes (Index, Flexi Cap, Small Cap, Gold, etc.).',
+            status: moneyLeft > 0 ? 'green' : 'red',
+            emoji: moneyLeft > 0 ? '💰' : '⚠️',
+            title: moneyLeft > 0
+                ? `Surplus monthly cash: ${formatRupee(moneyLeft)}`
+                : `Budget deficit: ${formatRupee(Math.abs(moneyLeft))} short`,
+            detail: moneyLeft > 0
+                ? 'You have a surplus after all expenses and SIPs. Consider a top-up SIP or emergency fund boost.'
+                : 'Your monthly commitments exceed your retained income. Review your SIPs or expenses.',
         },
     ];
 

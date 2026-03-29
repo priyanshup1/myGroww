@@ -11,7 +11,7 @@ export default function FamilyContributionPage() {
         familyContribution,
         setFamilyContribution,
         amountRetained,
-        familyPctGiven,
+        familyPctOfIncome,
     } = useFinanceData();
 
     return (
@@ -81,7 +81,7 @@ export default function FamilyContributionPage() {
                     }}>
                         {/* Amount Given (Mint) */}
                         <div style={{
-                            width: `${familyPctGiven}%`,
+                            width: `${familyPctOfIncome}%`,
                             height: '100%',
                             background: 'var(--accent-mint)',
                             transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -89,12 +89,12 @@ export default function FamilyContributionPage() {
                             alignItems: 'center',
                             justifyContent: 'center',
                             whiteSpace: 'nowrap',
-                            minWidth: familyPctGiven > 0 ? '4px' : '0'
+                            minWidth: familyPctOfIncome > 0 ? '4px' : '0'
                         }} />
 
                         {/* Amount Retained (Gold) */}
                         <div style={{
-                            width: `${100 - familyPctGiven}%`,
+                            width: `${100 - familyPctOfIncome}%`,
                             height: '100%',
                             background: 'var(--accent-gold)',
                             transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
@@ -108,7 +108,7 @@ export default function FamilyContributionPage() {
                                 <span style={{ fontWeight: 700, color: 'var(--accent-mint)' }}>Given to Family</span>
                             </div>
                             <div style={{ fontSize: '1.2rem', fontWeight: 800 }}>{formatRupee(familyContribution)}</div>
-                            <div className="label">{familyPctGiven.toFixed(1)}% of income</div>
+                            <div className="label">{familyPctOfIncome.toFixed(1)}% of income</div>
                         </div>
 
                         <div style={{ textAlign: 'right' }}>
@@ -117,7 +117,7 @@ export default function FamilyContributionPage() {
                                 <div style={{ width: 12, height: 12, borderRadius: 3, background: 'var(--accent-gold)' }} />
                             </div>
                             <div style={{ fontSize: '1.2rem', fontWeight: 800 }}>{formatRupee(amountRetained)}</div>
-                            <div className="label">{(100 - familyPctGiven).toFixed(1)}% of income</div>
+                            <div className="label">{(100 - familyPctOfIncome).toFixed(1)}% of income</div>
                         </div>
                     </div>
                 </GlassCard>

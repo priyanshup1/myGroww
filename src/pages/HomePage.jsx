@@ -50,7 +50,8 @@ export default function HomePage() {
         income, netWorth, totalInvested, emergencyFund,
         monthlyExpenses, monthsCovered, totalMonthlySip,
         sips, investmentCategories, smallCapPct,
-        familyContribution, familyPctGiven, totalLumpsum, amountRetained,
+        familyContribution, familyPctOfIncome, totalLumpsum, amountRetained,
+        wealthBuildingPctOfIncome,
         setIncome, setFamilyContribution, setEmergencyFund,
     } = fd;
 
@@ -60,10 +61,10 @@ export default function HomePage() {
         if (smallCapPct > 20) arr.push('amber');
         if (parseFloat(monthsCovered) < 3) arr.push('red');
         else if (parseFloat(monthsCovered) < 6) arr.push('amber');
-        if (income > 0 && totalMonthlySip / income > 0.2) arr.push('green');
+        if (wealthBuildingPctOfIncome > 20) arr.push('green');
         if (sips.length > 0) arr.push('green');
         return arr;
-    }, [smallCapPct, monthsCovered, income, totalMonthlySip, sips]);
+    }, [smallCapPct, monthsCovered, wealthBuildingPctOfIncome, sips]);
 
     const insightStatus = insights.includes('red') ? 'red' : insights.includes('amber') ? 'amber' : 'green';
 
@@ -80,7 +81,7 @@ export default function HomePage() {
     const divStatus = activeCats >= 4 ? 'green' : activeCats >= 2 ? 'amber' : 'red';
 
     // SIP status
-    const sipStatus = totalMonthlySip === 0 ? 'red' : income > 0 && totalMonthlySip / income > 0.2 ? 'green' : 'amber';
+    const sipStatus = totalMonthlySip === 0 ? 'red' : wealthBuildingPctOfIncome > 20 ? 'green' : 'amber';
 
     // Money flow completeness
     const flowData = fd.moneyFlow;
@@ -259,8 +260,8 @@ export default function HomePage() {
                         emoji="👪"
                         title="Family Contribution"
                         metric={formatRupee(familyContribution)}
-                        subtext={`${familyPctGiven.toFixed(0)}% of income shared`}
-                        badge={<StatusBadge status={familyPctGiven > 50 ? 'amber' : 'green'} label={familyPctGiven > 50 ? 'Substantial' : 'Managed'} />}
+                        subtext={`${familyPctOfIncome.toFixed(0)}% of income shared`}
+                        badge={<StatusBadge status={familyPctOfIncome > 50 ? 'amber' : 'green'} label={familyPctOfIncome > 50 ? 'Substantial' : 'Managed'} />}
                         onClick={() => nav('/family')}
                     />
 

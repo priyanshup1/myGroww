@@ -31,19 +31,35 @@ function MetricCard({ label, value, subtext, badge, editable, onEdit, accent }) 
 }
 
 export default function FinancialSnapshotPage() {
+    const navigate = useNavigate();
     const {
         income, setIncome,
+        familyContribution, setFamilyContribution,
         emergencyFund, setEmergencyFund,
         netWorth, totalInvested,
         monthlyExpenses, monthsCovered,
         totalMonthlySip,
+        // New metrics
+        amountRetained, familyPctOfIncome,
+        expenseRatioOfRetained, sipRatioOfRetained,
+        moneyLeft, emergencyGap,
+        activeSipsCount, wealthBuildingPctOfIncome,
     } = useFinanceData();
 
     const efMonths = parseFloat(monthsCovered);
     const efStatus = efMonths >= 6 ? 'green' : efMonths >= 3 ? 'amber' : 'red';
     const efLabel = efStatus === 'green' ? 'Safe' : efStatus === 'amber' ? 'Caution' : 'Low';
 
-    const sipRatio = income > 0 ? ((totalMonthlySip / income) * 100).toFixed(1) : 0;
+    const summaryItems = [
+        { label: 'Family Contribution', value: `${familyPctOfIncome.toFixed(1)}% of income` },
+        { label: 'Amount Retained', value: formatRupee(amountRetained) },
+        { label: 'Expense Ratio', value: `${expenseRatioOfRetained.toFixed(1)}% of retained` },
+        { label: 'SIP Ratio', value: `${sipRatioOfRetained.toFixed(1)}% of retained` },
+        { label: 'Money Left', value: formatRupee(moneyLeft) },
+        { label: 'Emergency Gap', value: emergencyGap <= 0 ? 'Fully covered' : formatRupee(emergencyGap) },
+        { label: 'Active Funds', value: `${activeSipsCount} funds` },
+        { label: 'Wealth Building', value: `${wealthBuildingPctOfIncome.toFixed(1)}% of income` },
+    ];
 
     return (
         <div className="page-layout">
@@ -64,11 +80,11 @@ export default function FinancialSnapshotPage() {
 
             <div className="container" style={{ paddingTop: 32 }}>
                 <p className="label mb-6" style={{ marginBottom: 24 }}>
-                    Core financial metrics. Edit income and emergency fund here; investment totals are derived from your <span style={{ color: 'var(--accent-gold)', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => nav('/sip')}>SIP Tracker</span>.
+                    Core financial metrics. Edit income, family contribution and emergency fund here; investment totals are derived from your <span style={{ color: 'var(--accent-gold)', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => navigate('/sip')}>SIP Tracker</span>.
                 </p>
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
                     gap: 20,
                     marginBottom: 32,
                 }}>
@@ -79,10 +95,20 @@ export default function FinancialSnapshotPage() {
                         editable
                         onEdit={setIncome}
                         accent="var(--accent-gold)"
-                        subtext="Click the value to edit"
+                        subtext="Click to edit your total income"
                     />
 
-                    {/* 2. Net Worth */}
+                    {/* 2. Family Contribution */}
+                    <MetricCard
+                        label="Family Contribution"
+                        value={familyContribution}
+                        editable
+                        onEdit={setFamilyContribution}
+                        accent="var(--alert-red)"
+                        subtext={`${familyPctOfIncome.toFixed(1)}% of your income`}
+                    />
+
+                    {/* 3. Net Worth */}
                     <MetricCard
                         label="Net Worth"
                         value={netWorth}
@@ -91,20 +117,20 @@ export default function FinancialSnapshotPage() {
                         badge={<StatusBadge status={netWorth > 0 ? 'green' : 'amber'} label={netWorth > 0 ? 'Growing' : 'Getting started'} />}
                     />
 
-                    {/* 3. Total Investments */}
+                    {/* 4. Total Investments */}
                     <MetricCard
                         label="Total Investments"
                         value={totalInvested}
-                        subtext={`Monthly SIP: ${formatRupee(totalMonthlySip)} (${sipRatio}% of income)`}
+                        subtext={`Monthly SIP: ${formatRupee(totalMonthlySip)}`}
                         accent="var(--text-primary)"
                         badge={
-                            income > 0 && totalMonthlySip / income > 0.2
+                            wealthBuildingPctOfIncome > 20
                                 ? <StatusBadge status="green" label="Great discipline" />
                                 : null
                         }
                     />
 
-                    {/* 4. Emergency Fund */}
+                    {/* 5. Emergency Fund */}
                     <MetricCard
                         label="Emergency Fund"
                         value={emergencyFund}
@@ -129,22 +155,31 @@ export default function FinancialSnapshotPage() {
                 </div>
 
                 {/* Summary row */}
-                <GlassCard style={{ padding: '20px 24px' }}>
-                    <div className="section-title mb-3">Quick Summary</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
-                        {[
-                            { label: 'Savings Rate', value: income > 0 ? ((1 - monthlyExpenses / income) * 100).toFixed(1) + '%' : '—' },
-                            { label: 'SIP % of Income', value: income > 0 ? ((totalMonthlySip / income) * 100).toFixed(1) + '%' : '—' },
-                            { label: 'Monthly Expenses', value: formatRupee(monthlyExpenses) },
-                            { label: 'Emergency Coverage', value: monthsCovered + ' months' },
-                        ].map((item) => (
+                <GlassCard style={{ padding: '24px 28px' }}>
+                    <div className="section-title mb-4">Quick Summary</div>
+                    <div className="summary-grid-v2">
+                        {summaryItems.map((item) => (
                             <div key={item.label}>
                                 <div className="label" style={{ marginBottom: 4 }}>{item.label}</div>
-                                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent-gold)' }}>{item.value}</div>
+                                <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--accent-gold)' }}>{item.value}</div>
                             </div>
                         ))}
                     </div>
                 </GlassCard>
+
+                <style dangerouslySetInnerHTML={{
+                    __html: `
+                    .summary-grid-v2 {
+                        display: grid;
+                        grid-template-columns: repeat(2, 1fr);
+                        gap: 24px 16px;
+                    }
+                    @media (min-width: 768px) {
+                        .summary-grid-v2 {
+                            grid-template-columns: repeat(4, 1fr);
+                        }
+                    }
+                `}} />
             </div>
         </div>
     );
