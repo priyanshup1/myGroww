@@ -131,27 +131,28 @@ export default function FinancialSnapshotPage() {
                     />
 
                     {/* 5. Emergency Fund */}
-                    <MetricCard
-                        label="Emergency Fund"
-                        value={emergencyFund}
-                        editable
-                        onEdit={setEmergencyFund}
-                        subtext={`Monthly expenses: ${formatRupee(monthlyExpenses)}`}
-                        badge={
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
-                                <StatusBadge status={efStatus} label={efLabel} />
-                                <span style={{
-                                    background: 'rgba(212, 165, 116, 0.15)',
-                                    border: '1px solid rgba(212, 165, 116, 0.3)',
-                                    borderRadius: 20, padding: '3px 10px',
-                                    fontSize: '0.72rem', fontWeight: 700,
-                                    color: 'var(--accent-gold)',
-                                }}>
-                                    {monthsCovered} months covered
-                                </span>
-                            </div>
-                        }
-                    />
+                    <div onClick={() => navigate('/emergency-fund')} style={{ cursor: 'pointer' }}>
+                        <MetricCard
+                            label="Emergency Fund"
+                            value={emergencyFund}
+                            editable={false}
+                            subtext="Click to park funds monthly"
+                            badge={
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
+                                    <StatusBadge status={efStatus} label={efLabel} />
+                                    <span style={{
+                                        background: 'rgba(212, 165, 116, 0.15)',
+                                        border: '1px solid rgba(212, 165, 116, 0.3)',
+                                        borderRadius: 20, padding: '3px 10px',
+                                        fontSize: '0.72rem', fontWeight: 700,
+                                        color: 'var(--accent-gold)',
+                                    }}>
+                                        {monthsCovered} months covered
+                                    </span>
+                                </div>
+                            }
+                        />
+                    </div>
                 </div>
 
                 {/* Summary row */}

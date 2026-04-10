@@ -5,7 +5,8 @@
 
 export const DEFAULT_INCOME = 100000; // ₹1,00,000/month
 export const DEFAULT_FAMILY_CONTRIBUTION = 20000; // ₹20,000
-export const DEFAULT_EMERGENCY_FUND = 300000; // ₹3,00,000
+
+export const DEFAULT_EF_ENTRIES = [];
 
 export const DEFAULT_MONEY_FLOW = [
     {

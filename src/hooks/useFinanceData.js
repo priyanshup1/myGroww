@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getData, setData } from '../data/storage';
 import {
     DEFAULT_INCOME,
-    DEFAULT_EMERGENCY_FUND,
+    DEFAULT_EF_ENTRIES,
     DEFAULT_MONEY_FLOW,
     DEFAULT_INVESTMENT_CATEGORIES,
     DEFAULT_SIPS,
@@ -35,7 +35,7 @@ function usePersistedState(key, defaultValue) {
 
 export function useFinanceData() {
     const [income, setIncome] = usePersistedState('income', DEFAULT_INCOME);
-    const [emergencyFund, setEmergencyFund] = usePersistedState('emergencyFund', DEFAULT_EMERGENCY_FUND);
+    const [efMonthlyEntries, setEfMonthlyEntries] = usePersistedState('efMonthlyEntries', DEFAULT_EF_ENTRIES);
     const [moneyFlow, setMoneyFlow] = usePersistedState('moneyFlow', DEFAULT_MONEY_FLOW);
     const [sips, setSips] = usePersistedState('sips', DEFAULT_SIPS);
     const [expenses, setExpenses] = usePersistedState('expenses', DEFAULT_EXPENSES);
@@ -82,6 +82,12 @@ export function useFinanceData() {
 
     // ─── Derived values for Quick Summary ─────────────────────────────────────
     const amountRetained = Math.max(0, income - familyContribution);
+
+    // Auto-calculated from saved AND submitted entries
+    const emergencyFund = efMonthlyEntries
+        .filter(e => e.status === 'submitted' || e.status === 'saved')
+        .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
     const familyPctOfIncome = income > 0 ? (familyContribution / income) * 100 : 0;
 
     const monthlyExpenses = expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
@@ -92,8 +98,8 @@ export function useFinanceData() {
 
     const moneyLeft = amountRetained - monthlyExpenses - totalMonthlySip;
 
-    const emergencyGap = (monthlyExpenses * 6) - emergencyFund;
-    const monthsCovered = monthlyExpenses > 0 ? (emergencyFund / monthlyExpenses).toFixed(1) : '∞';
+    const emergencyGap = (amountRetained * 6) - emergencyFund;
+    const monthsCovered = amountRetained > 0 ? (emergencyFund / amountRetained).toFixed(1) : '∞';
 
     const activeSipsCount = sips.filter(s => (Number(s.monthlySip) || 0) > 0).length;
 
@@ -129,7 +135,7 @@ export function useFinanceData() {
     return {
         // raw state
         income, setIncome,
-        emergencyFund, setEmergencyFund,
+        efMonthlyEntries, setEfMonthlyEntries,
         moneyFlow: syncedMoneyFlow, setMoneyFlow, updateFlowNode,
         investmentCategories, setInvestmentCategories,
         addCategory, updateCategory, deleteCategory,
@@ -137,6 +143,7 @@ export function useFinanceData() {
         expenses, setExpenses, addExpense, updateExpense, deleteExpense,
         familyContribution, setFamilyContribution,
         // derived
+        emergencyFund,
         totalInvested,
         totalLumpsum,
         netWorth,

@@ -251,7 +251,7 @@ export default function HomePage() {
                         metric={formatRupee(emergencyFund)}
                         subtext={`${monthsCovered} months covered`}
                         badge={<StatusBadge status={efStatus} label={efStatus === 'green' ? 'Safe' : efStatus === 'amber' ? 'Caution' : 'Low'} />}
-                        onClick={() => nav('/snapshot')}
+                        onClick={() => nav('/emergency-fund')}
                     />
 
                     {/* 7. Family Contribution */}
@@ -274,6 +274,17 @@ export default function HomePage() {
                         subtext="Discipline checks passed"
                         badge={<StatusBadge status={insightStatus} label={insightStatus === 'green' ? 'Healthy' : insightStatus === 'amber' ? 'Review needed' : 'Action needed'} />}
                         onClick={() => nav('/insights')}
+                    />
+
+                    {/* 9. Transaction History (V2) */}
+                    <DashCard
+                        delay={9}
+                        emoji="📅"
+                        title="Transaction History"
+                        metric="Log & Trends"
+                        subtext="Weekly, Fortnightly, Monthly"
+                        badge={<StatusBadge status="green" label="New" />}
+                        onClick={() => nav('/history')}
                     />
                 </div>
 

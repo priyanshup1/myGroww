@@ -8,6 +8,8 @@ import SipTrackerPage from './pages/SipTrackerPage';
 import ExpenseTrackerPage from './pages/ExpenseTrackerPage';
 import InsightsPage from './pages/InsightsPage';
 import FamilyContributionPage from './pages/FamilyContributionPage';
+import TransactionHistoryPage from './pages/TransactionHistoryPage';
+import EmergencyFundPage from './pages/EmergencyFundPage';
 
 export default function App() {
   return (
@@ -20,6 +22,8 @@ export default function App() {
       <Route path="/expenses" element={<ExpenseTrackerPage />} />
       <Route path="/insights" element={<InsightsPage />} />
       <Route path="/family" element={<FamilyContributionPage />} />
+      <Route path="/history" element={<TransactionHistoryPage />} />
+      <Route path="/emergency-fund" element={<EmergencyFundPage />} />
     </Routes>
   );
 }
