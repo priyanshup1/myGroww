@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { BackHead, SaveWarning } from '../components/ui';
 import { ThemePicker } from '../components/ThemePicker';
 import { BackupSection, ImportSection } from '../components/DataSection';
+import { UnlockSection } from '../components/UnlockSection';
 import { commit, useFinance } from '../store';
 import { setPrefs, usePrefs } from '../prefs';
 
@@ -72,7 +73,7 @@ export default function SettingsPage() {
                     <section>
                         <h2 className="section-title">Import</h2>
                         <p className="small mute" style={{ marginBottom: 10 }}>Files are read on this device. Nothing is uploaded, and importing the same file twice does not create duplicates.</p>
-                        <ImportSection />
+                        <div className="stack"><UnlockSection /><ImportSection /></div>
                     </section>
                     <section><h2 className="section-title">Your data</h2><BackupSection /></section>
                 </div>

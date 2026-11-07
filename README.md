@@ -20,6 +20,8 @@ Under the surface, every number comes from one list of transactions, so screens 
 
 Your data stays in your browser. Files are read on your device and nothing is uploaded. Browser data can be cleared and does not move between devices, so export a backup from Settings now and then.
 
+`public/vault.json` is the one exception: it is encrypted, and opens only with a long random passphrase kept outside git. It is public and stays in git history, so its safety depends entirely on that passphrase staying private.
+
 Never commit real statements. `private-data/`, spreadsheets and backups are ignored by git, and tests use made-up transactions.
 
 ## Reminders

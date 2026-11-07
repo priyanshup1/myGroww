@@ -15,6 +15,7 @@ import { dueDates, dueItems, monthlySetAside, paymentFor } from './recurring';
 import { buildCalendar } from './calendar';
 import { budgetStatus, cycleReview, topMerchants } from './insights';
 import { removeGoal, setBudget, upsertById } from './state';
+import { openVault, sealVault } from './vault';
 
 /** All names and amounts here are made up. */
 const salary = (date, rupees = 100000) => ({ date, amountPaise: toPaise(rupees), type: 'income', flow: 'in', category: 'Salary', description: 'Salary' });
@@ -478,5 +479,26 @@ describe('budgets and reviews', () => {
         const s = summarize(build(salary('2026-10-30')), today);
         expect(s.nudges.some((n) => n.id === 'backup')).toBe(true);
         expect(summarize(build(salary('2026-10-30')), today, { lastBackup: '2026-11-01' }).nudges.some((n) => n.id === 'backup')).toBe(false);
+    });
+});
+
+describe('encrypted data file', () => {
+    const data = { app: 'mygroww', note: 'Made-up Person sent 12345', list: new Array(5000).fill('x') };
+    it('opens with the right passphrase and hides the contents', async () => {
+        const vault = await sealVault(data, 'correct-horse');
+        const text = JSON.stringify(vault);
+        expect(text).not.toContain('Made-up');
+        expect(atob(vault.data)).not.toContain('Made-up');
+        expect(await openVault(vault, 'correct-horse')).toEqual(data);
+    }, 30000);
+    it('refuses a wrong passphrase and a tampered file', async () => {
+        const vault = await sealVault({ a: 1 }, 'right');
+        await expect(openVault(vault, 'wrong')).rejects.toThrow(/passphrase/);
+        const bytes = atob(vault.data);
+        const flipped = btoa(String.fromCharCode(bytes.charCodeAt(0) ^ 1) + bytes.slice(1));
+        await expect(openVault({ ...vault, data: flipped }, 'right')).rejects.toThrow();
+    }, 30000);
+    it('refuses a file that is not a vault', async () => {
+        await expect(openVault({ hello: 1 }, 'x')).rejects.toThrow(/not a myGroww/);
     });
 });

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { ThemePicker } from '../components/ThemePicker';
 import { ImportSection } from '../components/DataSection';
+import { UnlockSection } from '../components/UnlockSection';
 import { todayISO } from '../core/dates';
 import { toPaise } from '../core/money';
 import { addTx, setPlan } from '../core/state';
@@ -51,6 +52,7 @@ export default function WelcomePage() {
                 {step === 0 && (
                     <>
                         <p>See what is safe to spend after family, bills and savings, and how each rupee moves your goals closer. Your data stays on this device.</p>
+                        <UnlockSection />
                         <section><h2 className="section-title">Choose your look</h2><div className="card"><ThemePicker /></div></section>
                         <button type="button" className="btn btn-primary btn-block" onClick={() => setStep(1)}>Continue</button>
                     </>
