@@ -11,12 +11,15 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource/bodoni-moda": "^5.1.1",
+    "@fontsource/hanken-grotesk": "^5.1.1",
+    "@fontsource/sora": "^5.1.1",
     "fflate": "^0.8.2",
+    "motion": "^11.18.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.6.0",
-    "react-router-dom": "^7.13.2",
-    "recharts": "^3.8.1"
+    "react-router-dom": "^7.13.2"
   },
   "devDependencies": {
     "@types/react": "^18.2.15",
@@ -27,6 +30,7 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.3",
     "vite": "^4.4.5",
+    "vite-plugin-pwa": "^0.17.5",
     "vitest": "^0.34.6"
   }
 }

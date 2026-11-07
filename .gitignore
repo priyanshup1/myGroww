@@ -30,3 +30,6 @@ private-data/
 *statement*.csv
 *statement*.pdf
 mygroww_backup_*.json
+
+# Local design review captures
+.impeccable/review/

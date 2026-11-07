@@ -9,6 +9,10 @@ export function emptyState() {
         transactions: [],
         funds: [],
         goals: [],
+        recurring: [],
+        budgets: {},
+        reviewedCycles: [],
+        setupDone: false,
         merchantRules: {},
         dismissedDuplicates: [],
         plan: {
@@ -58,6 +62,32 @@ export function removeFund(state, id) {
         funds: state.funds.filter((f) => f.id !== id),
         transactions: state.transactions.map((t) => (t.fundId === id ? { ...t, fundId: null } : t)),
     };
+}
+
+export function upsertById(state, key, item) {
+    const list = state[key];
+    const exists = list.some((x) => x.id === item.id);
+    return { ...state, [key]: exists ? list.map((x) => (x.id === item.id ? { ...x, ...item } : x)) : [...list, item] };
+}
+
+export function removeById(state, key, id) {
+    return { ...state, [key]: state[key].filter((x) => x.id !== id) };
+}
+
+/** Removing a goal keeps its money as ordinary savings, so nothing vanishes from your records. */
+export function removeGoal(state, id) {
+    return {
+        ...state,
+        goals: state.goals.filter((g) => g.id !== id),
+        transactions: state.transactions.map((t) => (t.goalId === id ? { ...t, goalId: null } : t)),
+    };
+}
+
+export function setBudget(state, category, paise) {
+    const budgets = { ...state.budgets };
+    if (paise > 0) budgets[category] = paise;
+    else delete budgets[category];
+    return { ...state, budgets };
 }
 
 /** Corrects a category and remembers it for every other line from the same merchant. */

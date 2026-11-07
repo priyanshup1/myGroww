@@ -2,10 +2,13 @@
  * Every number shown in the app comes from here, so no two pages can disagree.
  * All amounts are in paise.
  */
-import { addDays, daysBetween, formatDate, monthKey } from './dates';
+import { addDays, addMonths, daysBetween, formatDate, monthKey } from './dates';
 import { buildSalaryCycles, cycleFor, daysLeftInCycle, inCycle, statementCycleFor } from './cycles';
 import { EMERGENCY_FUND, debitOutEffect, netOut, spendEffect } from './ledger';
 import { formatINR } from './money';
+import { planGoals } from './goals';
+import { dueItems, monthlySetAside } from './recurring';
+import { budgetStatus, buildNudges, spendLessIdea } from './insights';
 
 const sum = (list, fn) => list.reduce((total, item) => total + fn(item), 0);
 const VERIFIED = ['bank_statement', 'card_statement'];
@@ -55,6 +58,10 @@ export function cycleSummary(state, cycle, today) {
         verified: lines.length > 0 && verifiedLines / lines.length >= 0.8,
         categories: categoriesOf(txs),
     };
+}
+
+function nextCycleStart(cycle) {
+    return cycle.end ? addDays(cycle.end, 1) : addMonths(cycle.start, 1);
 }
 
 function detectDuplicates(state) {
@@ -162,12 +169,12 @@ function buildInsights(s) {
         list.push({ id: 'invest', status: pct >= 10 ? 'green' : 'amber', title: `${pct}% of this cycle's income invested`, detail: `${formatINR(c.investedPaise)} of ${formatINR(c.incomePaise)} so far.` });
     }
     if (s.review.count > 0) {
-        list.push({ id: 'review', status: 'amber', title: `${s.review.count} entries need a quick check`, detail: 'Confirming them makes every number here more accurate.' });
+        list.push({ id: 'review', status: 'amber', title: `${s.review.count === 1 ? '1 entry needs' : `${s.review.count} entries need`} a quick check`, detail: 'Confirming them makes every number here more accurate.' });
     }
     return list;
 }
 
-export function summarize(state, today) {
+export function summarize(state, today, prefs = {}) {
     const transactions = state.transactions;
     const cycles = buildSalaryCycles(transactions);
     const cycle = cycleFor(cycles, today);
@@ -178,7 +185,12 @@ export function summarize(state, today) {
     const plannedSip = sum(state.funds, (f) => f.monthlySipPaise || 0);
     const unpaidFamily = Math.max(0, state.plan.familyContributionPaise - current.familyContributionPaise);
     const unpaidSip = Math.max(0, plannedSip - current.investedPaise);
-    const plannedUnpaidPaise = unpaidFamily + unpaidSip;
+    const cycleEnd = addDays(nextCycleStart(cycle), -1);
+    const due = dueItems(state, addDays(today, -30), addDays(today, 60), today);
+    const billDueInCycle = due.filter((d) => d.kind === 'bill' && !d.paid && d.due >= cycle.start && d.due <= cycleEnd);
+    const unpaidBills = sum(billDueInCycle.filter((d) => (d.item.account ?? 'debit') === 'debit'), (d) => d.amountPaise);
+    const unpaidGoals = sum(state.goals, (g) => Math.max(0, (g.monthlyPaise || 0) - netOut(current.txs.filter((t) => t.goalId === g.id), 'savings')));
+    const plannedUnpaidPaise = unpaidFamily + unpaidSip + unpaidBills + unpaidGoals;
 
     const cardPurchases = sum(transactions.filter((t) => t.account === 'credit'), spendEffect);
     const cardBills = netOut(transactions, 'card_bill');
@@ -212,6 +224,11 @@ export function summarize(state, today) {
         cashLeftPaise,
         unpaidFamilyPaise: unpaidFamily,
         unpaidSipPaise: unpaidSip,
+        unpaidBillsPaise: unpaidBills,
+        unpaidGoalsPaise: unpaidGoals,
+        due,
+        billsMonthlyPaise: sum(state.recurring.filter((r) => r.frequency === 'monthly'), (r) => r.amountPaise),
+        setAsideMonthlyPaise: sum(state.recurring, monthlySetAside),
         plannedUnpaidPaise,
         cardOutstandingPaise,
         safeToSpendPaise,
@@ -226,6 +243,12 @@ export function summarize(state, today) {
         months: monthlyHistory(state),
         review: { flagged, duplicates, count: flagged.length + duplicates.length },
     };
+    summary.goals = planGoals(state, today);
+    summary.previous = closed.filter((c) => c.cycle.end < cycle.start).slice(-1)[0] ?? null;
+    summary.budgets = budgetStatus(state.budgets, current);
+    summary.idea = spendLessIdea(current, summary.previous, summary.goals.plans.find((p) => !p.done));
+    summary.nudges = buildNudges(summary, state, today, prefs);
+    summary.unreviewed = closed.filter((c) => !state.reviewedCycles.includes(c.cycle.id)).slice(-1)[0] ?? null;
     summary.insights = buildInsights(summary);
     return summary;
 }

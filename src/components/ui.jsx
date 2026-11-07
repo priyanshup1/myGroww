@@ -1,101 +1,150 @@
-import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useId, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { animate, motion } from 'motion/react';
 import { SPEND_CATEGORIES, TX_TYPES } from '../core/ledger';
-import { formatINR, toPaise } from '../core/money';
+import { formatCompact, formatINR, toPaise } from '../core/money';
+import { Icon } from './icons';
 
-export function BackButton() {
-    const navigate = useNavigate();
-    return <button type="button" className="btn btn-ghost btn-icon" onClick={() => navigate('/')}>← Dashboard</button>;
+export function PageHead({ title, action, plain }) {
+    return (
+        <header className="page-head">
+            <h1 className={`page-title${plain ? '' : ' morph'}`}>{title}</h1>
+            {action ?? <Link to="/settings" className="icon-btn" aria-label="Settings"><Icon name="settings" /></Link>}
+        </header>
+    );
 }
 
-export function PageHeader({ section, title, action }) {
+export function BackHead({ title, to = '/' }) {
     return (
-        <div className="page-header">
-            <div className="container flex justify-between items-center" style={{ flexWrap: 'wrap', gap: 10 }}>
-                <div className="flex items-center gap-3">
-                    <BackButton />
-                    <div>
-                        <div className="section-title">{section}</div>
-                        <h2 style={{ fontSize: 'clamp(1rem,2.5vw,1.35rem)' }}>{title}</h2>
-                    </div>
-                </div>
-                {action}
-            </div>
+        <header className="page-head" style={{ justifyContent: 'flex-start' }}>
+            <Link to={to} viewTransition className="icon-btn" aria-label="Back" style={{ marginLeft: -10 }}><Icon name="back" /></Link>
+            <h1 className="page-title morph">{title}</h1>
+        </header>
+    );
+}
+
+export function Stat({ label, value, note }) {
+    return (
+        <div className="card">
+            <div className="tiny mute">{label}</div>
+            <div className="stat-value">{value}</div>
+            {note && <div className="tiny mute" style={{ marginTop: 3 }}>{note}</div>}
         </div>
     );
 }
 
-export function Card({ children, className = '', style, onClick }) {
-    return <div className={`glass-card${onClick ? ' clickable' : ''} ${className}`} style={{ padding: 22, ...style }} onClick={onClick}>{children}</div>;
+/** A rupee figure that counts smoothly to its new value when the money changes. */
+export function AnimatedAmount({ paise, compact = false, abs = false, start }) {
+    const ref = useRef(null);
+    const shown = useRef(start ?? paise);
+    const fmt = (v) => {
+        const value = abs ? Math.abs(v) : v;
+        return compact ? formatCompact(value) : formatINR(value);
+    };
+    useEffect(() => {
+        const from = shown.current;
+        if (from === paise || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            shown.current = paise;
+            if (ref.current) ref.current.textContent = fmt(paise);
+            return undefined;
+        }
+        const controls = animate(from, paise, {
+            duration: 0.85,
+            ease: [0.23, 1, 0.32, 1],
+            onUpdate: (v) => { shown.current = v; if (ref.current) ref.current.textContent = fmt(v); },
+        });
+        return () => controls.stop();
+    });
+    return <span ref={ref}>{fmt(shown.current)}</span>;
 }
 
-export function Stat({ label, value, note, tone }) {
+/** A tab choice kept in the address, so links can open a specific tab. */
+export function useTab(defaultTab) {
+    const [params, setParams] = useSearchParams();
+    const value = params.get('tab') ?? defaultTab;
+    return [value, (tab) => setParams((p) => { p.set('tab', tab); return p; }, { replace: true })];
+}
+
+/** A segmented control whose highlight slides between options. */
+export function Tabs({ tabs, value, onChange, label }) {
+    const group = useId();
     return (
-        <Card>
-            <div className="section-title mb-1">{label}</div>
-            <div className="big-number" style={{ color: tone }}>{value}</div>
-            {note && <div className="label mt-1">{note}</div>}
-        </Card>
+        <div className="tabs" role="tablist" aria-label={label}>
+            {tabs.map((t) => (
+                <button key={t.id} type="button" role="tab" className="tab" aria-selected={value === t.id} onClick={() => onChange(t.id)}>
+                    {value === t.id && <motion.i className="tab-pill" layoutId={`pill-${group}`} transition={{ type: 'spring', duration: 0.32, bounce: 0.12 }} />}
+                    <span>{t.label}</span>
+                </button>
+            ))}
+        </div>
     );
 }
 
-const ICONS = { green: '●', amber: '◆', red: '▲' };
-
-export function StatusBadge({ status = 'green', label }) {
-    return <span className={`status-badge ${status}`}><span>{ICONS[status]}</span>{label}</span>;
-}
-
-/** An amount in paise that you can click to change. */
-export function EditableAmount({ value, onChange }) {
+/** An amount you tap to change. */
+export function EditableAmount({ value, onChange, label = 'Amount in rupees', className = 'stat-value' }) {
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState('');
     const ref = useRef(null);
     useEffect(() => { if (editing) ref.current?.select(); }, [editing]);
     function save() {
-        const paise = toPaise(draft);
+        const paise = toPaise(draft === '' ? '0' : draft);
         if (Number.isFinite(paise) && paise >= 0) onChange(paise);
         setEditing(false);
     }
     if (editing) {
         return (
-            <input
-                ref={ref}
-                className="editable-number-input"
-                inputMode="decimal"
-                aria-label="Amount in rupees"
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onBlur={save}
-                onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false); }}
-            />
+            <span className="field">
+                <input ref={ref} inputMode="decimal" enterKeyHint="done" aria-label={label} value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={save} onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false); }} />
+            </span>
         );
     }
     return (
-        <button type="button" className="editable-number-wrap link-button" title="Click to change" onClick={() => { setDraft(String(value / 100)); setEditing(true); }}>
-            <span className="editable-number-display">{formatINR(value, { exact: true })}</span>
-            <span aria-hidden="true" style={{ fontSize: '0.75em', opacity: 0.6 }}>✎</span>
+        <button type="button" className={`row ${className}`} style={{ gap: 6, minHeight: 44 }} aria-label={`${label}: ${formatINR(value)}. Change`} onClick={() => { setDraft(value ? String(value / 100) : ''); setEditing(true); }}>
+            {formatINR(value, { exact: true })}
+            <span className="mute"><Icon name="edit" size={15} /></span>
         </button>
     );
 }
 
-export function CategorySelect({ value, onChange, id }) {
+export function CategorySelect({ value, onChange, id, label = 'Category' }) {
     const options = SPEND_CATEGORIES.includes(value) || !value ? SPEND_CATEGORIES : [value, ...SPEND_CATEGORIES];
     return (
-        <select id={id} aria-label="Category" value={value || 'Misc'} onChange={(e) => onChange(e.target.value)}>
-            {options.map((c) => <option key={c}>{c}</option>)}
-        </select>
+        <label className="field" htmlFor={id}>{label}
+            <select id={id} value={value || 'Misc'} onChange={(e) => onChange(e.target.value)}>{options.map((c) => <option key={c}>{c}</option>)}</select>
+        </label>
     );
 }
 
-export function TypeSelect({ value, onChange }) {
+export function TypeSelect({ value, onChange, id, label = 'What kind of money' }) {
     return (
-        <select aria-label="Type" value={value} onChange={(e) => onChange(e.target.value)}>
-            {Object.entries(TX_TYPES).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
-        </select>
+        <label className="field" htmlFor={id}>{label}
+            <select id={id} value={value} onChange={(e) => onChange(e.target.value)}>{Object.entries(TX_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+        </label>
+    );
+}
+
+export function Bar({ share, over }) {
+    return <div className={`bar${over ? ' over' : ''}`} aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(100, share * 100)).toFixed(1)}%` }} /></div>;
+}
+
+/** Links to related cards with their live values, so every page leads to the next. */
+export function Connected({ links }) {
+    return (
+        <section aria-label="Connected to">
+            <h2 className="section-title">Connected to</h2>
+            <div className="stack" style={{ gap: 6 }}>
+                {links.map((l) => (
+                    <Link key={l.to} to={l.to} viewTransition className="card between" style={{ minHeight: 56, padding: '8px 14px', textDecoration: 'none' }}>
+                        <span style={{ fontWeight: 600 }}>{l.label}</span>
+                        <span className="row tabular" style={{ gap: 6 }}>{l.value}<Icon name="chevron" size={16} /></span>
+                    </Link>
+                ))}
+            </div>
+        </section>
     );
 }
 
 export function SaveWarning({ error }) {
     if (!error) return null;
-    return <div className="insight-card red mb-4" role="alert"><div>{error}</div></div>;
+    return <div className="alert-box small" role="alert" style={{ marginBottom: 12 }}>{error}</div>;
 }

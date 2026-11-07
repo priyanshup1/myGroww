@@ -10,6 +10,11 @@ import { importCSV, parseCSV } from './importers/csv';
 import { importTracker } from './importers/tracker';
 import { readWorkbook } from './importers/xlsx';
 import { makeBackup, migrateLegacy, readBackup } from './migrate';
+import { futurePrice, monthsBetween, monthsToReach, planGoal, project, requiredMonthly } from './goals';
+import { dueDates, dueItems, monthlySetAside, paymentFor } from './recurring';
+import { buildCalendar } from './calendar';
+import { budgetStatus, cycleReview, topMerchants } from './insights';
+import { removeGoal, setBudget, upsertById } from './state';
 
 /** All names and amounts here are made up. */
 const salary = (date, rupees = 100000) => ({ date, amountPaise: toPaise(rupees), type: 'income', flow: 'in', category: 'Salary', description: 'Salary' });
@@ -337,5 +342,141 @@ describe('migrating the old app', () => {
         const state = migrateLegacy({ efMonthlyEntries: [{ month: '2026-09', amount: 500, status: 'draft' }, { month: '2026-10', amount: 700, status: 'saved' }] }, today);
         expect(state.transactions).toHaveLength(1);
         expect(state.transactions[0].category).toBe('Emergency Fund');
+    });
+});
+
+describe('goals', () => {
+    const today = '2026-11-07';
+    it('works out the monthly amount and the time, both ways round', () => {
+        expect(requiredMonthly(toPaise(800000), 0, 24)).toBe(3333334);
+        expect(monthsToReach(toPaise(800000), 0, toPaise(25000))).toBe(32);
+    });
+    it('needs less each month when returns are assumed', () => {
+        const flat = requiredMonthly(toPaise(800000), 0, 24, 0);
+        const withReturns = requiredMonthly(toPaise(800000), 0, 24, 10);
+        expect(withReturns).toBeLessThan(flat);
+        expect(monthsToReach(toPaise(100), 0, 0)).toBeNull();
+    });
+    it('a compounding plan really reaches the target', () => {
+        const monthly = requiredMonthly(toPaise(500000), toPaise(50000), 36, 8);
+        let balance = toPaise(50000);
+        for (let m = 0; m < 36; m += 1) balance = balance * (1 + 0.08 / 12) + monthly;
+        expect(balance).toBeGreaterThanOrEqual(toPaise(500000) - 1);
+        expect(balance).toBeLessThan(toPaise(500100));
+    });
+    it('raises the target when prices are assumed to rise', () => {
+        expect(futurePrice(toPaise(100000), 12, 10)).toBe(toPaise(110000));
+        const flat = planGoal({ id: 'g', name: 'Car', targetPaise: toPaise(800000), targetDate: '2028-11-07', monthlyPaise: 0 }, 0, today);
+        const rising = planGoal({ id: 'g', name: 'Car', targetPaise: toPaise(800000), targetDate: '2028-11-07', monthlyPaise: 0, priceRisePct: 5 }, 0, today);
+        expect(rising.neededMonthlyPaise).toBeGreaterThan(flat.neededMonthlyPaise);
+    });
+    it('reports pace, finish date and being on track', () => {
+        const p = planGoal({ id: 'g', name: 'Bike', targetPaise: toPaise(120000), targetDate: '2027-11-07', monthlyPaise: toPaise(5000) }, toPaise(20000), today);
+        expect(p.paceMonths).toBe(20);
+        expect(p.paceDate).toBe('2028-07-07');
+        expect(p.onTrack).toBe(false);
+        expect(monthsBetween(today, '2027-11-07')).toBe(12);
+    });
+    it('projects money put in and possible growth', () => {
+        const flat = project(toPaise(100000), toPaise(1000), 2, 0);
+        expect(flat[2]).toMatchObject({ putPaise: toPaise(124000), valuePaise: toPaise(124000), growthPaise: 0 });
+        expect(project(toPaise(100000), toPaise(1000), 2, 10)[2].growthPaise).toBeGreaterThan(0);
+    });
+    it('counts contributions, holds back the monthly amount, and keeps money if a goal is removed', () => {
+        let st = upsertById(build(salary('2026-10-30')), 'goals', { id: 'g1', name: 'Car', targetPaise: toPaise(800000), targetDate: '2028-11-07', monthlyPaise: toPaise(8000), openingPaise: toPaise(10000) });
+        expect(summarize(st, today).safeToSpendPaise).toBe(toPaise(92000));
+        st = addTx(st, { date: '2026-11-02', amountPaise: toPaise(8000), type: 'savings', goalId: 'g1', category: 'Goal', description: 'Car' });
+        const s = summarize(st, today);
+        expect(s.safeToSpendPaise).toBe(toPaise(92000));
+        expect(s.goals.plans[0].savedPaise).toBe(toPaise(18000));
+        const gone = removeGoal(st, 'g1');
+        expect(gone.transactions.filter((x) => x.type === 'savings')).toHaveLength(1);
+    });
+    it('shows when goals compete for the same money', () => {
+        let st = upsertById(emptyState(), 'goals', { id: 'a', name: 'Car', targetPaise: toPaise(240000), targetDate: '2028-11-07', monthlyPaise: toPaise(2000) });
+        st = upsertById(st, 'goals', { id: 'b', name: 'House', targetPaise: toPaise(600000), targetDate: '2031-11-07', monthlyPaise: toPaise(2000) });
+        const g = summarize(st, today).goals;
+        expect(g.neededPaise).toBe(toPaise(20000));
+        expect(g.shortfallPaise).toBe(toPaise(16000));
+    });
+});
+
+describe('recurring bills', () => {
+    const today = '2026-11-07';
+    it('finds monthly, quarterly and yearly dates, clamping short months', () => {
+        expect(dueDates({ frequency: 'monthly', dueDay: 31 }, '2027-02-01', '2027-03-31')).toEqual(['2027-02-28', '2027-03-31']);
+        expect(dueDates({ frequency: 'yearly', dueDay: 11, dueMonth: 6 }, '2026-01-01', '2027-12-31')).toEqual(['2026-06-11', '2027-06-11']);
+        expect(dueDates({ frequency: 'quarterly', dueDay: 5, dueMonth: 2 }, '2026-01-01', '2026-12-31')).toEqual(['2026-02-05', '2026-05-05', '2026-08-05', '2026-11-05']);
+    });
+    it('shows the monthly set-aside for a yearly bill', () => {
+        expect(monthlySetAside({ frequency: 'yearly', amountPaise: toPaise(28000) })).toBe(233334);
+        expect(monthlySetAside({ frequency: 'monthly', amountPaise: 100 })).toBe(0);
+    });
+    it('holds back a bill due this cycle until it is marked paid, and only once', () => {
+        let st = upsertById(build(salary('2026-10-30')), 'recurring', { id: 'r1', name: 'Electricity', amountPaise: toPaise(2000), frequency: 'monthly', dueDay: 12, category: 'Bills' });
+        expect(summarize(st, today).safeToSpendPaise).toBe(toPaise(98000));
+        const entry = dueItems(st, '2026-11-01', '2026-11-30', today)[0];
+        expect(entry).toMatchObject({ due: '2026-11-12', paid: false, daysAway: 5 });
+        st = addTx(st, paymentFor(entry, today));
+        expect(dueItems(st, '2026-11-01', '2026-11-30', today)[0].paid).toBe(true);
+        expect(summarize(st, today).safeToSpendPaise).toBe(toPaise(98000));
+    });
+    it('does not call a new bill overdue for dates before it was added', () => {
+        const st = upsertById(emptyState(), 'recurring', { id: 'r1', name: 'Rent', amountPaise: 100, frequency: 'monthly', dueDay: 2, startDate: today });
+        expect(dueItems(st, '2026-10-01', '2026-12-31', today).map((d) => d.due)).toEqual(['2026-12-02']);
+    });
+    it('flags overdue bills and a SIP due date', () => {
+        let st = upsertById(emptyState(), 'recurring', { id: 'r1', name: 'Internet', amountPaise: 100, frequency: 'monthly', dueDay: 2 });
+        st = upsertFund(st, { id: 'f', name: 'Index', category: 'Index Funds', monthlySipPaise: toPaise(500), sipDay: 10 });
+        const items = dueItems(st, '2026-11-01', '2026-11-30', today);
+        expect(items[0].overdue).toBe(true);
+        expect(items[1]).toMatchObject({ kind: 'sip', paid: false });
+        const s = summarize(st, today);
+        expect(s.nudges.some((n) => n.tone === 'red')).toBe(true);
+    });
+    it('builds a valid calendar file with escaped text', () => {
+        const st = upsertById(emptyState(), 'recurring', { id: 'r1', name: 'Rent, flat', amountPaise: toPaise(12000), frequency: 'yearly', dueDay: 31, dueMonth: 2 });
+        const ics = buildCalendar(st, today);
+        expect(ics).toContain('BEGIN:VCALENDAR');
+        expect(ics).toContain('SUMMARY:Rent\\, flat ₹12\\,000 due');
+        expect(ics).toContain('DTSTART;VALUE=DATE:20270228');
+        expect(ics).toContain('RRULE:FREQ=YEARLY');
+        expect(ics.split('BEGIN:VEVENT')).toHaveLength(2);
+    });
+});
+
+describe('budgets and reviews', () => {
+    const today = '2026-11-07';
+    it('compares spending with budgets and removes a cleared budget', () => {
+        let st = build(salary('2026-10-30'), spend('2026-11-01', 1200));
+        st = setBudget(st, 'Food', toPaise(1000));
+        const row = summarize(st, today).budgets.find((b) => b.name === 'Food');
+        expect(row).toMatchObject({ spentPaise: toPaise(1200), over: true });
+        expect(budgetStatus(setBudget(st, 'Food', 0).budgets, summarize(st, today).current)[0].limitPaise).toBe(0);
+    });
+    it('finds the top merchants, without one-offs', () => {
+        const st = build(salary('2026-10-30'), spend('2026-11-01', 50, { description: 'Cafe A' }), spend('2026-11-02', 70, { description: 'Cafe A' }), spend('2026-11-02', 9000, { description: 'Big', oneOff: true }));
+        const top = topMerchants(summarize(st, today).current.txs);
+        expect(top).toHaveLength(1);
+        expect(top[0]).toMatchObject({ name: 'Cafe A', amountPaise: toPaise(120), count: 2 });
+    });
+    it('writes a review of a finished cycle and offers one to look at', () => {
+        const st = build(salary('2026-08-30'), spend('2026-09-01', 100), salary('2026-09-30'), spend('2026-10-01', 300), salary('2026-10-30'));
+        const s = summarize(st, today);
+        expect(s.previous.cycle.start).toBe('2026-09-30');
+        expect(s.unreviewed.cycle.start).toBe('2026-09-30');
+        expect(cycleReview(s.cycles[1], s.cycles[0])[0].detail).toContain('₹200 more');
+        expect(summarize({ ...st, reviewedCycles: [s.unreviewed.cycle.id] }, today).unreviewed.cycle.start).toBe('2026-08-30');
+    });
+    it('offers a spend-less idea that names the effect on the top goal', () => {
+        let st = build(salary('2026-09-30'), spend('2026-10-01', 1000), salary('2026-10-30'), spend('2026-11-01', 3000));
+        st = upsertById(st, 'goals', { id: 'g', name: 'Car', targetPaise: toPaise(120000), targetDate: '2030-11-07', monthlyPaise: toPaise(1000) });
+        expect(summarize(st, today).idea.text).toContain('sooner');
+    });
+    it('nudges for a backup, but not on an empty app', () => {
+        expect(summarize(emptyState(), today).nudges).toHaveLength(0);
+        const s = summarize(build(salary('2026-10-30')), today);
+        expect(s.nudges.some((n) => n.id === 'backup')).toBe(true);
+        expect(summarize(build(salary('2026-10-30')), today, { lastBackup: '2026-11-01' }).nudges.some((n) => n.id === 'backup')).toBe(false);
     });
 });

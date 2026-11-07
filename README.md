@@ -1,22 +1,30 @@
 # myGroww
 
-A private personal finance tracker for salaried people in India who support family and invest monthly. It answers one question first: how much is safe to spend?
+A private personal finance app for salaried people in India who support family and invest monthly. It answers one question first: how much is safe to spend?
 
 ## What it does
 
-- **Safe to spend:** your salary, minus what has gone out, what is planned for family and SIPs, and what is unpaid on your card.
-- **One ledger:** every number is calculated from one list of transactions, so pages cannot disagree.
-- **No double counting:** card purchases count as spending when you buy. Card bills, SIPs, savings and transfers never do.
-- **Two kinds of cycle:** salary cycles for budgets, and statement cycles for card bills.
-- **One-offs:** big purchases are kept apart from your normal month.
-- **Review list:** unsure entries and possible duplicates wait for you to confirm them.
-- **Import:** a debit tracker workbook, CSV statements and backups. Files are checked before anything changes, and importing twice does not create duplicates.
+- **Connected cards:** your salary, family, bills, SIPs, goals and safety net are joined on one screen, and money visibly moves between them when something changes.
+- **Safe to spend:** your salary, minus what has gone out, what is planned for family, SIPs, bills and goals, and what is unpaid on your card.
+- **Quick add:** log an expense in seconds, with your most-used categories first.
+- **Goals planner:** how much to save, how long it takes, and whether your goals compete for the same money.
+- **Future projection:** your investments 1, 2 or 5 years out, at a return rate you choose.
+- **Bills and budgets:** repeating bills, yearly ones saved for monthly, and limits only where you want them.
+- **Cycle review:** a finished salary cycle in a few plain sentences.
+- **Two themes:** Obsidian Gold and Midnight Emerald, each in dark and light.
+- **Installable:** add it to your phone and use it without internet.
+
+Under the surface, every number comes from one list of transactions, so screens cannot disagree. Card purchases count as spending when you buy. Card bills, SIPs, savings and transfers never do.
 
 ## Privacy
 
-Your data stays in your browser. Files are read on your device and nothing is uploaded. Browser data can be cleared, so export a backup from the Import page now and then.
+Your data stays in your browser. Files are read on your device and nothing is uploaded. Browser data can be cleared and does not move between devices, so export a backup from Settings now and then.
 
 Never commit real statements. `private-data/`, spreadsheets and backups are ignored by git, and tests use made-up transactions.
+
+## Reminders
+
+There is no server, so the app cannot alert you while it is closed. Download the calendar file from Plan, then Bills, and your phone's calendar will remind you instead.
 
 ## Run it
 
@@ -32,8 +40,21 @@ npm run dev
 npm test
 ```
 
+Offline use and installing only work in a production build:
+
+```bash
+npm run build
+```
+
+```bash
+npm run preview
+```
+
 ## Layout
 
-- `src/core/`: money, dates, ledger rules, cycles, calculations, importers and migration. No UI, fully tested.
+- `src/core/`: money, dates, ledger rules, cycles, goals, bills, calculations, importers and migration. No UI, fully tested.
 - `src/store.js`: saving and loading. Every page shares it.
-- `src/pages/`: the screens.
+- `src/prefs.js`: theme and other per-device settings.
+- `src/components/`: the money map, quick-add sheet, charts and shared parts.
+- `src/pages/`: Home, Activity, Plan, Wealth, Review, Cycle review, Settings and first-run setup.
+- `PRODUCT.md` and `DESIGN.md`: what the product is and how it should look.

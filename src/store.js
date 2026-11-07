@@ -7,6 +7,7 @@ import { todayISO } from './core/dates';
 import { STATE_VERSION, emptyState } from './core/state';
 import { legacyFromFlat, looksLegacy, makeBackup, migrateLegacy, readBackup } from './core/migrate';
 import { summarize } from './core/selectors';
+import { usePrefs } from './prefs';
 
 const KEY = 'mygroww_v2';
 const RESTORE_KEY = 'mygroww_v2_restore';
@@ -100,7 +101,7 @@ export function replaceAll(next) {
 
 export function resetAll() {
     keepRestorePoint();
-    commit(() => emptyState());
+    commit(() => ({ ...emptyState(), setupDone: true }));
 }
 
 export function hasRestorePoint() {
@@ -141,7 +142,8 @@ function subscribe(listener) {
 
 export function useFinance() {
     const { state, lastSaved: saved, saveError: error } = useSyncExternalStore(subscribe, () => snapshot);
+    const { lastBackup } = usePrefs();
     const today = todayISO();
-    const s = useMemo(() => summarize(state, today), [state, today]);
+    const s = useMemo(() => summarize(state, today, { lastBackup }), [state, today, lastBackup]);
     return { state, s, today, lastSaved: saved, saveError: error };
 }

@@ -83,6 +83,9 @@ export function createTx(input) {
         needsReview: Boolean(input.needsReview),
         reviewReason: input.reviewReason ?? '',
         fundId: input.fundId ?? null,
+        goalId: input.goalId ?? null,
+        recurringId: input.recurringId ?? null,
+        dueDate: input.dueDate ?? null,
     };
     const errors = validateTx(tx);
     if (errors.length) throw new Error(errors.join(' '));

@@ -1,5 +1,5 @@
 import toast from 'react-hot-toast';
-import { Card, CategorySelect, PageHeader, TypeSelect } from '../components/ui';
+import { BackHead, CategorySelect, TypeSelect } from '../components/ui';
 import { changeWithUndo } from '../components/undo';
 import { formatDate } from '../core/dates';
 import { EMERGENCY_FUND, SOURCES } from '../core/ledger';
@@ -14,24 +14,23 @@ function changeType(st, t, type) {
     return updateTx(st, t.id, patch);
 }
 
-function FlaggedRow({ t }) {
+function FlaggedCard({ t }) {
     return (
-        <Card className="mb-3">
-            <div className="flex justify-between gap-3" style={{ flexWrap: 'wrap' }}>
-                <div style={{ minWidth: 0 }}>
-                    <strong>{t.description}</strong>
-                    <div className="label">{formatDate(t.date)} · {SOURCES[t.source]}</div>
-                </div>
-                <strong>{formatINR(t.amountPaise, { exact: true })}{t.flow === 'in' ? ' received' : ''}</strong>
+        <article className="card stack">
+            <div className="between" style={{ alignItems: 'flex-start' }}>
+                <div className="grow"><strong>{t.description}</strong><div className="small mute">{formatDate(t.date)} · {SOURCES[t.source]}</div></div>
+                <strong className="tabular">{formatINR(t.amountPaise, { exact: true })}{t.flow === 'in' ? ' in' : ''}</strong>
             </div>
-            <p className="mt-2 mb-3" style={{ color: 'var(--accent-gold)' }}>{t.reviewReason}</p>
-            <div className="form-row">
-                <label>Type<TypeSelect value={t.type} onChange={(v) => commit((st) => changeType(st, t, v))} /></label>
-                {t.type === 'spend' && <label>Category (saves and confirms)<CategorySelect value={t.category} onChange={(v) => commit((st) => categoriseMerchant(st, t.id, v))} /></label>}
-                <button type="button" className="btn btn-primary" onClick={() => { commit((st) => updateTx(st, t.id, { needsReview: false, reviewReason: '' })); toast.success('Confirmed'); }}>Looks right</button>
-                <button type="button" className="btn btn-danger" onClick={() => changeWithUndo('Entry deleted.', (st) => removeTx(st, t.id))}>Delete</button>
+            <p className="small accent">{t.reviewReason}</p>
+            <div className="form-grid">
+                <TypeSelect id={`type-${t.id}`} value={t.type} onChange={(v) => commit((st) => changeType(st, t, v))} />
+                {t.type === 'spend' && <CategorySelect id={`cat-${t.id}`} label="Category (saves and confirms)" value={t.category} onChange={(v) => commit((st) => categoriseMerchant(st, t.id, v))} />}
             </div>
-        </Card>
+            <div className="row wrap">
+                <button type="button" className="btn btn-primary btn-small" onClick={() => { commit((st) => updateTx(st, t.id, { needsReview: false, reviewReason: '' })); toast.success('Confirmed'); }}>Looks right</button>
+                <button type="button" className="btn btn-danger btn-small" onClick={() => changeWithUndo('Entry deleted', (st) => removeTx(st, t.id))}>Delete</button>
+            </div>
+        </article>
     );
 }
 
@@ -39,26 +38,31 @@ export default function ReviewPage() {
     const { s } = useFinance();
     const { flagged, duplicates } = s.review;
     return (
-        <div className="page-layout">
-            <PageHeader section="Review" title={`✅ ${s.review.count} to check`} />
-            <div className="container" style={{ paddingTop: 24, maxWidth: 800 }}>
-                {s.review.count === 0 && <Card><strong>All checked.</strong><p className="label mt-1">Anything unsure from a future import will appear here.</p></Card>}
-
-                {duplicates.length > 0 && <h3 className="mb-3">Possible duplicates</h3>}
-                {duplicates.map(({ key, a, b }) => (
-                    <Card key={key} className="mb-3">
-                        <strong>{a.description} / {b.description}</strong>
-                        <div className="label mb-3">{formatINR(a.amountPaise)} on {formatDate(a.date)}{a.date !== b.date ? ` and ${formatDate(b.date)}` : ', twice'}</div>
-                        <div className="form-row">
-                            <button type="button" className="btn btn-primary" onClick={() => commit((st) => ({ ...st, dismissedDuplicates: [...st.dismissedDuplicates, key] }))}>Both are real</button>
-                            <button type="button" className="btn btn-danger" onClick={() => changeWithUndo('Duplicate deleted.', (st) => removeTx(st, b.id))}>Delete one</button>
-                        </div>
-                    </Card>
-                ))}
-
-                {flagged.length > 0 && <h3 className="mb-3 mt-4">Please confirm</h3>}
-                {flagged.map((t) => <FlaggedRow key={t.id} t={t} />)}
+        <>
+            <BackHead title={s.review.count ? `${s.review.count} to check` : 'All checked'} />
+            <div className="stack-l" style={{ maxWidth: 720 }}>
+                {s.review.count === 0 && <p className="empty">Nothing needs checking. Anything unsure from a future import will appear here.</p>}
+                {duplicates.length > 0 && (
+                    <section className="stack">
+                        <h2 className="section-title" style={{ margin: 0 }}>Possible duplicates</h2>
+                        {duplicates.map(({ key, a, b }) => (
+                            <article key={key} className="card stack">
+                                <div><strong>{a.description}{a.description !== b.description ? ` / ${b.description}` : ''}</strong><div className="small mute tabular">{formatINR(a.amountPaise)} on {formatDate(a.date)}{a.date !== b.date ? ` and ${formatDate(b.date)}` : ', twice'}</div></div>
+                                <div className="row wrap">
+                                    <button type="button" className="btn btn-primary btn-small" onClick={() => commit((st) => ({ ...st, dismissedDuplicates: [...st.dismissedDuplicates, key] }))}>Both are real</button>
+                                    <button type="button" className="btn btn-danger btn-small" onClick={() => changeWithUndo('Duplicate deleted', (st) => removeTx(st, b.id))}>Delete one</button>
+                                </div>
+                            </article>
+                        ))}
+                    </section>
+                )}
+                {flagged.length > 0 && (
+                    <section className="stack">
+                        <h2 className="section-title" style={{ margin: 0 }}>Please confirm</h2>
+                        {flagged.map((t) => <FlaggedCard key={t.id} t={t} />)}
+                    </section>
+                )}
             </div>
-        </div>
+        </>
     );
 }
