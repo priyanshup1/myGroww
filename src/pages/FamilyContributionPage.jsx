@@ -1,126 +1,43 @@
-import React from 'react';
-import { useFinanceData } from '../hooks/useFinanceData';
-import GlassCard from '../components/GlassCard';
-import EditableNumber, { formatRupee } from '../components/EditableNumber';
-import DataControls from '../components/DataControls';
-import BackButton from '../components/BackButton';
+import { Card, EditableAmount, PageHeader, Stat } from '../components/ui';
+import { formatDate } from '../core/dates';
+import { formatINR } from '../core/money';
+import { setPlan } from '../core/state';
+import { commit, useFinance } from '../store';
 
 export default function FamilyContributionPage() {
-    const {
-        income,
-        familyContribution,
-        setFamilyContribution,
-        amountRetained,
-        familyPctOfIncome,
-    } = useFinanceData();
-
+    const { state, s } = useFinance();
+    const c = s.current;
+    const share = c.incomePaise > 0 ? Math.min(100, Math.max(0, (c.familyPaise / c.incomePaise) * 100)) : 0;
     return (
         <div className="page-layout">
-            <div className="page-header">
-                <div className="container">
-                    <div className="flex justify-between items-center" style={{ flexWrap: 'wrap', gap: 10 }}>
-                        <div className="flex items-center gap-3">
-                            <BackButton />
-                            <div>
-                                <div className="section-title">Family Contribution</div>
-                                <h2 style={{ fontSize: 'clamp(1rem,2.5vw,1.35rem)' }}>👪 Monthly Support</h2>
-                            </div>
-                        </div>
-                        <DataControls />
-                    </div>
+            <PageHeader section="Family" title="👪 Monthly support" />
+            <div className="container" style={{ paddingTop: 24 }}>
+                <div className="stat-row mb-4">
+                    <Card>
+                        <div className="section-title mb-1">Planned contribution each cycle</div>
+                        <div className="big-number"><EditableAmount value={state.plan.familyContributionPaise} onChange={(p) => commit((st) => setPlan(st, { familyContributionPaise: p }))} /></div>
+                        <div className="label mt-1">Held back from safe to spend until it goes out</div>
+                    </Card>
+                    <Stat label="Sent this cycle" value={formatINR(c.familyPaise)} note={`${formatINR(c.familyContributionPaise)} contribution, ${formatINR(c.familySupportPaise)} support`} />
+                    <Stat label="Still to send" value={formatINR(s.unpaidFamilyPaise)} />
                 </div>
-            </div>
-
-            <div className="container" style={{ paddingTop: 32 }}>
-                <p className="label mb-6" style={{ marginBottom: 24 }}>
-                    Track how much of your income is shared with family vs. retained for your own expenses and investments.
-                </p>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, marginBottom: 32 }}>
-                    {/* Salary (Read-only) */}
-                    <GlassCard style={{ padding: '24px' }} className="animate-in">
-                        <div className="section-title mb-2">Monthly Take-home</div>
-                        <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-secondary)' }}>
-                            {formatRupee(income)}
-                        </div>
-                        <div className="label mt-2 opacity-60">Source: Financial Snapshot</div>
-                    </GlassCard>
-
-                    {/* Amount Given (Editable) */}
-                    <GlassCard style={{ padding: '24px' }} className="animate-in stagger-1">
-                        <div className="section-title mb-2" style={{ color: 'var(--accent-mint)' }}>Amount Given to Family</div>
-                        <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--accent-mint)' }}>
-                            <EditableNumber value={familyContribution} onChange={setFamilyContribution} />
-                        </div>
-                        <div className="label mt-2 opacity-60">Click to edit amount</div>
-                    </GlassCard>
-
-                    {/* Amount Retained */}
-                    <GlassCard style={{ padding: '24px' }} className="animate-in stagger-2">
-                        <div className="section-title mb-2" style={{ color: 'var(--accent-gold)' }}>Amount Retained</div>
-                        <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--accent-gold)' }}>
-                            {formatRupee(amountRetained)}
-                        </div>
-                        <div className="label mt-2 opacity-60">Remaining for self</div>
-                    </GlassCard>
-                </div>
-
-                {/* Visual Split Bar */}
-                <GlassCard style={{ padding: '32px' }} className="animate-in stagger-3">
-                    <div className="section-title mb-4">Contribution Split</div>
-
-                    <div style={{
-                        height: 48,
-                        width: '100%',
-                        background: 'var(--border)',
-                        borderRadius: 12,
-                        overflow: 'hidden',
-                        display: 'flex',
-                        marginBottom: 20,
-                        boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3)'
-                    }}>
-                        {/* Amount Given (Mint) */}
-                        <div style={{
-                            width: `${familyPctOfIncome}%`,
-                            height: '100%',
-                            background: 'var(--accent-mint)',
-                            transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            whiteSpace: 'nowrap',
-                            minWidth: familyPctOfIncome > 0 ? '4px' : '0'
-                        }} />
-
-                        {/* Amount Retained (Gold) */}
-                        <div style={{
-                            width: `${100 - familyPctOfIncome}%`,
-                            height: '100%',
-                            background: 'var(--accent-gold)',
-                            transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
-                        }} />
+                <Card className="mb-4">
+                    <div className="section-title mb-3">Share of this cycle&apos;s income</div>
+                    <div className="split"><div style={{ width: `${share}%` }} /></div>
+                    <p className="label mt-2">{Math.round(share)}% of {formatINR(c.incomePaise)}</p>
+                </Card>
+                <Card>
+                    <div className="section-title mb-3">By salary cycle</div>
+                    <div className="table-wrap">
+                        <table className="data-table">
+                            <thead><tr><th>Cycle from</th><th>Contribution</th><th>Support (after money received)</th></tr></thead>
+                            <tbody>
+                                {s.cycles.slice().reverse().map((x) => <tr key={x.cycle.id}><td>{formatDate(x.cycle.start)}</td><td>{formatINR(x.familyContributionPaise)}</td><td>{formatINR(x.familySupportPaise)}</td></tr>)}
+                                {s.cycles.length === 0 && <tr><td colSpan={3} className="label" style={{ textAlign: 'center', padding: 20 }}>Import your data to see this.</td></tr>}
+                            </tbody>
+                        </table>
                     </div>
-
-                    <div className="flex justify-between items-start" style={{ gap: 20 }}>
-                        <div>
-                            <div className="flex items-center gap-2 mb-1">
-                                <div style={{ width: 12, height: 12, borderRadius: 3, background: 'var(--accent-mint)' }} />
-                                <span style={{ fontWeight: 700, color: 'var(--accent-mint)' }}>Given to Family</span>
-                            </div>
-                            <div style={{ fontSize: '1.2rem', fontWeight: 800 }}>{formatRupee(familyContribution)}</div>
-                            <div className="label">{familyPctOfIncome.toFixed(1)}% of income</div>
-                        </div>
-
-                        <div style={{ textAlign: 'right' }}>
-                            <div className="flex items-center gap-2 mb-1 justify-end">
-                                <span style={{ fontWeight: 700, color: 'var(--accent-gold)' }}>Retained by You</span>
-                                <div style={{ width: 12, height: 12, borderRadius: 3, background: 'var(--accent-gold)' }} />
-                            </div>
-                            <div style={{ fontSize: '1.2rem', fontWeight: 800 }}>{formatRupee(amountRetained)}</div>
-                            <div className="label">{(100 - familyPctOfIncome).toFixed(1)}% of income</div>
-                        </div>
-                    </div>
-                </GlassCard>
+                </Card>
             </div>
         </div>
     );

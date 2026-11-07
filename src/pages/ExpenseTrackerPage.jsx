@@ -1,162 +1,119 @@
-import React from 'react';
-import { useFinanceData } from '../hooks/useFinanceData';
-import GlassCard from '../components/GlassCard';
-import DataControls from '../components/DataControls';
-import BackButton from '../components/BackButton';
-import { formatRupee } from '../components/EditableNumber';
-import { EXPENSE_CATEGORIES } from '../data/defaults';
+import { useMemo, useState } from 'react';
+import { CategorySelect, Card, EditableAmount, PageHeader, Stat, TypeSelect } from '../components/ui';
+import { changeWithUndo } from '../components/undo';
+import { cycleFor, inCycle } from '../core/cycles';
+import { formatDate } from '../core/dates';
+import { ACCOUNTS, SOURCES, TX_TYPES } from '../core/ledger';
+import { formatINR, toPaise } from '../core/money';
+import { addTx, removeTx, updateTx } from '../core/state';
+import { commit, useFinance } from '../store';
+
+function AddExpense({ today }) {
+    const [form, setForm] = useState({ amount: '', category: 'Food', description: '', date: today, account: 'debit', oneOff: false });
+    const [error, setError] = useState('');
+    const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+    function submit(e) {
+        e.preventDefault();
+        const amountPaise = toPaise(form.amount);
+        if (!Number.isFinite(amountPaise) || amountPaise <= 0) { setError('Enter an amount more than ₹0.'); return; }
+        if (!form.date || form.date > today) { setError('Choose today or an earlier date.'); return; }
+        commit((state) => addTx(state, { ...form, amountPaise, type: 'spend', description: form.description.trim() || form.category }));
+        setForm((f) => ({ ...f, amount: '', description: '', oneOff: false }));
+        setError('');
+    }
+    return (
+        <form onSubmit={submit} className="form-row">
+            <label>Amount (₹)<input id="exp-amount" autoFocus inputMode="decimal" value={form.amount} onChange={(e) => set('amount', e.target.value)} placeholder="250" /></label>
+            <label>Category<CategorySelect id="exp-cat" value={form.category} onChange={(v) => set('category', v)} /></label>
+            <label>What for (optional)<input id="exp-desc" value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Lunch" /></label>
+            <label>Date<input id="exp-date" type="date" max={today} value={form.date} onChange={(e) => set('date', e.target.value)} /></label>
+            <label>Paid by<select id="exp-account" value={form.account} onChange={(e) => set('account', e.target.value)}>{Object.entries(ACCOUNTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+            <label className="check"><input id="exp-oneoff" type="checkbox" checked={form.oneOff} onChange={(e) => set('oneOff', e.target.checked)} /> One-off</label>
+            <button type="submit" className="btn btn-primary">Add expense</button>
+            {error && <p className="red-text" role="alert" style={{ flexBasis: '100%' }}>{error}</p>}
+        </form>
+    );
+}
 
 export default function ExpenseTrackerPage() {
-    const { expenses, addExpense, updateExpense, deleteExpense, monthlyExpenses, income, monthsCovered } = useFinanceData();
+    const { s, today } = useFinance();
+    const [cycleStart, setCycleStart] = useState('current');
+    const [scope, setScope] = useState('spend');
+    const [query, setQuery] = useState('');
+    const selected = cycleStart === 'current' ? s.current.cycle : s.cycles.find((c) => c.cycle.start === cycleStart)?.cycle ?? cycleFor([], today);
+    const summary = s.cycles.find((c) => c.cycle.id === selected.id) ?? s.current;
 
-    function handleAddRow() {
-        const today = new Date().toISOString().slice(0, 10);
-        addExpense({
-            id: Date.now().toString(),
-            date: today,
-            category: 'Food',
-            amount: 0,
-            notes: '',
-        });
-    }
-
-    const expenseRatio = income > 0 ? ((monthlyExpenses / income) * 100).toFixed(1) : 0;
-    const ratioStatus = expenseRatio < 50 ? 'green' : expenseRatio < 70 ? 'amber' : 'red';
-
-    // By category totals
-    const byCat = EXPENSE_CATEGORIES.map((cat) => ({
-        cat,
-        total: expenses.filter((e) => e.category === cat).reduce((s, e) => s + (Number(e.amount) || 0), 0),
-    })).filter((c) => c.total > 0);
+    const rows = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        return s.transactions
+            .filter((t) => scope === 'everything' || (scope === 'all-time-spend' ? t.type === 'spend' : t.type === 'spend' && inCycle(t, selected, today)))
+            .filter((t) => scope !== 'everything' || inCycle(t, selected, today))
+            .filter((t) => !q || `${t.description} ${t.category}`.toLowerCase().includes(q))
+            .slice()
+            .sort((a, b) => b.date.localeCompare(a.date));
+    }, [s.transactions, scope, selected, today, query]);
 
     return (
         <div className="page-layout">
-            <div className="page-header">
-                <div className="container">
-                    <div className="flex justify-between items-center" style={{ flexWrap: 'wrap', gap: 10 }}>
-                        <div className="flex items-center gap-3">
-                            <BackButton />
-                            <div>
-                                <div className="section-title">Expense Tracker</div>
-                                <h2 style={{ fontSize: 'clamp(1rem,2.5vw,1.35rem)' }}>🧾 Monthly Expenses</h2>
-                            </div>
-                        </div>
-                        <DataControls />
-                    </div>
-                </div>
-            </div>
+            <PageHeader section="Spending" title="🧾 Expenses" />
+            <div className="container" style={{ paddingTop: 24 }}>
+                <Card className="mb-4"><AddExpense today={today} /></Card>
 
-            <div className="container" style={{ paddingTop: 32 }}>
-                {/* Summary strip */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 16, marginBottom: 24 }}>
-                    {[
-                        { label: 'Monthly Total', value: formatRupee(monthlyExpenses), color: ratioStatus === 'red' ? 'var(--alert-red)' : 'var(--accent-gold)' },
-                        { label: 'Of Income', value: `${expenseRatio}%`, color: ratioStatus === 'red' ? 'var(--alert-red)' : ratioStatus === 'amber' ? 'var(--accent-gold)' : 'var(--accent-mint-light)' },
-                        { label: 'Emergency Coverage', value: `${monthsCovered} months`, color: 'var(--text-primary)' },
-                    ].map((item) => (
-                        <GlassCard key={item.label} className="animate-in" style={{ padding: '18px 22px' }}>
-                            <div className="section-title mb-1">{item.label}</div>
-                            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: item.color }}>{item.value}</div>
-                        </GlassCard>
-                    ))}
+                <div className="stat-row mb-4">
+                    <Stat label="Spent this cycle" value={formatINR(summary.spendPaise)} note={`${formatDate(selected.start)} to ${selected.end ? formatDate(selected.end) : 'today'}`} />
+                    <Stat label="Normal spending" value={formatINR(summary.normalSpendPaise)} note="Without one-offs" />
+                    <Stat label="One-offs" value={formatINR(summary.oneOffPaise)} note="Big purchases that are not monthly" />
                 </div>
 
-                {/* Category breakdown */}
-                {byCat.length > 0 && (
-                    <GlassCard className="animate-in stagger-2" style={{ padding: '20px 24px', marginBottom: 24 }}>
-                        <div className="section-title mb-3">By Category</div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                            {byCat.map(({ cat, total }) => (
-                                <div key={cat} style={{
-                                    background: 'rgba(26,125,111,0.08)', border: '1px solid var(--border)',
-                                    borderRadius: 10, padding: '8px 16px', minWidth: 120,
-                                }}>
-                                    <div className="label" style={{ fontSize: '0.7rem' }}>{cat}</div>
-                                    <div style={{ fontWeight: 700, color: 'var(--accent-gold)' }}>{formatRupee(total)}</div>
-                                </div>
+                {summary.categories.length > 0 && (
+                    <Card className="mb-4">
+                        <div className="section-title mb-3">By category</div>
+                        <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+                            {summary.categories.map((c) => (
+                                <div key={c.name} className="chip"><span className="label">{c.name}</span> <strong>{formatINR(c.amountPaise)}</strong></div>
                             ))}
                         </div>
-                    </GlassCard>
+                    </Card>
                 )}
 
-                {/* Expense table */}
-                <GlassCard style={{ padding: '24px' }} className="animate-in stagger-3">
-                    <div className="flex justify-between items-center mb-4" style={{ flexWrap: 'wrap', gap: 10 }}>
-                        <div className="section-title" style={{ margin: 0 }}>Expense Log</div>
-                        <button className="btn btn-primary btn-icon" onClick={handleAddRow}>+ Add Expense</button>
+                <Card>
+                    <div className="form-row mb-4">
+                        <label>Salary cycle
+                            <select id="cycle-pick" value={cycleStart} onChange={(e) => setCycleStart(e.target.value)}>
+                                <option value="current">Current</option>
+                                {s.cycles.slice().reverse().map((c) => <option key={c.cycle.start} value={c.cycle.start}>From {formatDate(c.cycle.start)}</option>)}
+                            </select>
+                        </label>
+                        <label>Show
+                            <select id="scope-pick" value={scope} onChange={(e) => setScope(e.target.value)}>
+                                <option value="spend">Spending</option>
+                                <option value="everything">All money in this cycle</option>
+                                <option value="all-time-spend">All spending ever</option>
+                            </select>
+                        </label>
+                        <label>Search<input id="tx-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Grocery, cab" /></label>
                     </div>
-
                     <div className="table-wrap">
                         <table className="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Category</th>
-                                    <th>Amount (₹)</th>
-                                    <th>Notes</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
+                            <thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Type</th><th>Paid by</th><th>Amount</th><th>One-off</th><th><span className="sr-only">Delete</span></th></tr></thead>
                             <tbody>
-                                {expenses.map((exp) => (
-                                    <tr key={exp.id}>
-                                        <td>
-                                            <input
-                                                type="date"
-                                                value={exp.date}
-                                                onChange={(e) => updateExpense(exp.id, 'date', e.target.value)}
-                                                style={{ width: 140 }}
-                                            />
-                                        </td>
-                                        <td>
-                                            <select
-                                                value={exp.category}
-                                                onChange={(e) => updateExpense(exp.id, 'category', e.target.value)}
-                                            >
-                                                {EXPENSE_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <input
-                                                type="number"
-                                                value={exp.amount || 0}
-                                                onChange={(e) => updateExpense(exp.id, 'amount', parseFloat(e.target.value) || 0)}
-                                                style={{ width: 110 }}
-                                            />
-                                        </td>
-                                        <td>
-                                            <input
-                                                value={exp.notes || ''}
-                                                onChange={(e) => updateExpense(exp.id, 'notes', e.target.value)}
-                                                placeholder="Optional note…"
-                                                style={{ width: 180 }}
-                                            />
-                                        </td>
-                                        <td>
-                                            <button className="btn btn-danger btn-icon" onClick={() => deleteExpense(exp.id)}>✕</button>
-                                        </td>
+                                {rows.map((t) => (
+                                    <tr key={t.id}>
+                                        <td style={{ whiteSpace: 'nowrap' }}>{formatDate(t.date)}</td>
+                                        <td>{t.description}<div className="label" style={{ fontSize: '0.72rem' }}>{SOURCES[t.source]}{t.flow === 'in' && t.type !== 'income' ? ' · money back' : ''}</div></td>
+                                        <td>{t.type === 'spend' ? <CategorySelect value={t.category} onChange={(v) => commit((st) => updateTx(st, t.id, { category: v }))} /> : t.category}</td>
+                                        <td><TypeSelect value={t.type} onChange={(v) => commit((st) => updateTx(st, t.id, { type: v }))} /></td>
+                                        <td>{ACCOUNTS[t.account]}</td>
+                                        <td><EditableAmount value={t.amountPaise} onChange={(p) => { if (p > 0) commit((st) => updateTx(st, t.id, { amountPaise: p })); }} /></td>
+                                        <td><input type="checkbox" aria-label="One-off" disabled={t.type !== 'spend'} checked={t.oneOff} onChange={(e) => commit((st) => updateTx(st, t.id, { oneOff: e.target.checked }))} /></td>
+                                        <td><button type="button" className="btn btn-danger btn-icon" aria-label={`Delete ${t.description}`} onClick={() => changeWithUndo('Entry deleted.', (st) => removeTx(st, t.id))}>✕</button></td>
                                     </tr>
                                 ))}
-                                {expenses.length === 0 && (
-                                    <tr>
-                                        <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px 0' }}>
-                                            No expenses logged — click "+ Add Expense" to start
-                                        </td>
-                                    </tr>
-                                )}
+                                {rows.length === 0 && <tr><td colSpan={8} className="label" style={{ textAlign: 'center', padding: 24 }}>Nothing here yet. {TX_TYPES.spend} you add will appear in this list.</td></tr>}
                             </tbody>
-                            <tfoot>
-                                <tr>
-                                    <td colSpan={2} style={{ fontWeight: 700, paddingTop: 12 }}>Monthly Total</td>
-                                    <td style={{ fontWeight: 700, color: 'var(--accent-gold)', paddingTop: 12 }}>
-                                        {formatRupee(monthlyExpenses)}
-                                    </td>
-                                    <td colSpan={2} />
-                                </tr>
-                            </tfoot>
                         </table>
                     </div>
-                </GlassCard>
+                </Card>
             </div>
         </div>
     );

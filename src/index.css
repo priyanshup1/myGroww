@@ -377,7 +377,7 @@ h3 { font-size: clamp(1rem, 2.5vw, 1.25rem); }
 
 /* ─── Misc ───────────────────────────────────────────────────────────────── */
 .overflow-x { overflow-x: auto; }
-.table-wrap { overflow-x: auto; border-radius: var(--radius-sm); }
+.table-wrap { position: relative; overflow-x: auto; border-radius: var(--radius-sm); }
 .text-right { text-align: right; }
 .opacity-60 { opacity: 0.6; }
 .mt-1 { margin-top: 4px; }
@@ -449,4 +449,31 @@ h3 { font-size: clamp(1rem, 2.5vw, 1.25rem); }
   width: 100%;
   box-shadow: 0 20px 60px rgba(0,0,0,0.5);
   animation: fadeInUp 0.25s ease;
+}
+
+/* ─── Forms and small helpers (phase 1) ──────────────────────────────────── */
+.form-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.form-row label { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; color: var(--text-secondary); font-weight: 500; min-width: 0; }
+.form-row label.check { flex-direction: row; align-items: center; min-height: 40px; }
+.form-row input:not([type="checkbox"]), .form-row select, .form-row textarea {
+  background: rgba(21, 25, 42, 0.9); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text-primary); font: inherit; font-size: 0.9rem; padding: 8px 10px; min-height: 40px; max-width: 100%;
+}
+.form-row input:focus, .form-row select:focus { outline: 2px solid var(--accent-mint-light); outline-offset: 1px; }
+.btn { min-height: 40px; text-decoration: none; justify-content: center; }
+.btn-icon { min-height: 36px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn:focus-visible, a:focus-visible, .link-button:focus-visible { outline: 2px solid var(--accent-gold); outline-offset: 2px; }
+.link-button { background: none; border: 0; color: inherit; font: inherit; padding: 0; }
+.card-link { color: inherit; text-decoration: none; }
+.card-link:hover { text-decoration: underline; }
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.chip { background: rgba(26, 125, 111, 0.08); border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px; }
+.split { height: 10px; border-radius: 99px; background: var(--border); overflow: hidden; margin-top: 6px; }
+.split > div { height: 100%; background: var(--accent-mint-light); transition: width 0.5s cubic-bezier(.23,1,.32,1); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.stagger-8, .stagger-9 { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-in, .stagger-1, .stagger-2, .stagger-3, .stagger-4, .stagger-5, .stagger-6, .stagger-7 { animation: none; opacity: 1; }
+  .split > div { transition: none; }
 }
